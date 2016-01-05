@@ -19,10 +19,10 @@
  */
 package org.sonar.plugins.github;
 
-import javax.annotation.Nullable;
 import org.kohsuke.github.GHCommitState;
 import org.sonar.api.issue.Issue;
 import org.sonar.api.rule.Severity;
+import javax.annotation.Nullable;
 
 public class GlobalReport {
   private final MarkDownUtils markDownUtils;
@@ -131,7 +131,7 @@ public class GlobalReport {
       if (notReportedDisplayedIssueCount < GitHubPluginConfiguration.MAX_GLOBAL_ISSUES) {
         notReportedOnDiff
           .append("* ")
-          .append(markDownUtils.globalIssue(issue.severity(), issue.message(), issue.ruleKey().toString(), githubUrl, issue.componentKey()))
+          .append(markDownUtils.globalIssue(issue.severity(), issue.message(), issue.ruleKey().toString(), githubUrl, issue.componentKey(), issue.isNew(), issue.key()))
           .append("\n");
         notReportedDisplayedIssueCount++;
       }
