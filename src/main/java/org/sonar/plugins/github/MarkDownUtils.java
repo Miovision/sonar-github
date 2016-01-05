@@ -19,18 +19,18 @@
  */
 package org.sonar.plugins.github;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import javax.annotation.Nullable;
 import org.sonar.api.BatchComponent;
 import org.sonar.api.CoreProperties;
 import org.sonar.api.batch.InstantiationStrategy;
 import org.sonar.api.config.Settings;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import javax.annotation.Nullable;
 
 @InstantiationStrategy(InstantiationStrategy.PER_BATCH)
 public class MarkDownUtils implements BatchComponent {
 
-  private static final String IMAGES_ROOT_URL = "https://raw.githubusercontent.com/SonarCommunity/sonar-github/master/images/";
+  private static final String IMAGES_ROOT_URL = "https://raw.githubusercontent.com/Miovision/sonar-github/master/images/";
   private final String ruleUrlPrefix;
 
   public MarkDownUtils(Settings settings) {
@@ -42,7 +42,7 @@ public class MarkDownUtils implements BatchComponent {
     this.ruleUrlPrefix = baseUrl;
   }
 
-  public String inlineIssue(String severity, String message, String ruleKey) {
+  public String inlineIssue(String severity, String message, String ruleKey, boolean isNew, String issueKey) {
     String ruleLink = getRuleLink(ruleKey);
     StringBuilder sb = new StringBuilder();
     sb.append(getImageMarkdownForSeverity(severity))
@@ -50,10 +50,13 @@ public class MarkDownUtils implements BatchComponent {
       .append(message)
       .append(" ")
       .append(ruleLink);
+    if (!isNew) {
+      sb.append(getIssueLink(issueKey));
+    }
     return sb.toString();
   }
 
-  public String globalIssue(String severity, String message, String ruleKey, @Nullable String url, String componentKey) {
+  public String globalIssue(String severity, String message, String ruleKey, @Nullable String url, String componentKey, boolean isNew, String issueKey) {
     String ruleLink = getRuleLink(ruleKey);
     StringBuilder sb = new StringBuilder();
     sb.append(getImageMarkdownForSeverity(severity)).append(" ");
@@ -63,11 +66,18 @@ public class MarkDownUtils implements BatchComponent {
       sb.append(message).append(" ").append("(").append(componentKey).append(")");
     }
     sb.append(" ").append(ruleLink);
+    if (!isNew) {
+      sb.append(getIssueLink(issueKey));
+    }
     return sb.toString();
   }
 
   String getRuleLink(String ruleKey) {
     return "[![rule](" + IMAGES_ROOT_URL + "rule.png)](" + ruleUrlPrefix + "coding_rules#rule_key=" + encodeForUrl(ruleKey) + ")";
+  }
+
+  String getIssueLink(String issueKey) {
+    return "[![PERMALINK](" + IMAGES_ROOT_URL + "permalink.png)](" + ruleUrlPrefix + "issues/search#issues=" + issueKey + ")";
   }
 
   static String encodeForUrl(String url) {
