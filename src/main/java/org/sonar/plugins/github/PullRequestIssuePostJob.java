@@ -102,7 +102,7 @@ public class PullRequestIssuePostJob implements org.sonar.api.batch.PostJob, Che
           if (!commentsByLine.containsKey(line)) {
             commentsByLine.put(line, new StringBuilder());
           }
-          commentsByLine.get(line).append(markDownUtils.inlineIssue(severity, message, ruleKey)).append("\n");
+          commentsByLine.get(line).append(markDownUtils.inlineIssue(severity, message, ruleKey, issue.isNew(), issue.key())).append("\n");
           reportedInline = true;
         }
       }
