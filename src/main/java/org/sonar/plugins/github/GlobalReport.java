@@ -22,12 +22,16 @@ package org.sonar.plugins.github;
 import org.kohsuke.github.GHCommitState;
 import org.sonar.api.issue.Issue;
 import org.sonar.api.rule.Severity;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
+import javafx.util.Pair;
 
 public class GlobalReport {
   private final MarkDownUtils markDownUtils;
   private int[] newIssuesBySeverity = new int[Severity.ALL.size()];
-  private StringBuilder notReportedOnDiff = new StringBuilder();
+  private int[] totalIssuesBySeverity = new int[Severity.ALL.size()];
+  private List<Pair<Issue, String>> unreportedIssues = new ArrayList<Pair<Issue, String>>();
   private int notReportedIssueCount = 0;
   private int notReportedDisplayedIssueCount = 0;
 
@@ -35,20 +39,30 @@ public class GlobalReport {
     this.markDownUtils = markDownUtils;
   }
 
-  private void increment(String severity) {
-    this.newIssuesBySeverity[Severity.ALL.indexOf(severity)]++;
+  private void increment(Issue issue) {
+    final String severity = issue.severity();
+    if (issue.isNew()) {
+      this.newIssuesBySeverity[Severity.ALL.indexOf(severity)]++;
+    }
+    this.totalIssuesBySeverity[Severity.ALL.indexOf(severity)]++;
   }
 
   public String formatForMarkdown() {
     StringBuilder sb = new StringBuilder();
     printNewIssuesMarkdown(sb);
-    if (hasNewIssue()) {
+    if (hasIssue()) {
       sb.append("\nWatch the comments in this conversation to review them.");
     }
-    if (notReportedOnDiff.length() > 0) {
-      sb.append("\nNote: the following issues could not be reported as comments because they are located on lines that are not displayed in this pull request:\n")
-        .append(notReportedOnDiff.toString());
-
+    if (!unreportedIssues.isEmpty()) {
+      sb.append("\nNote: the following issues could not be reported as comments because they are located on lines that are not displayed in this pull request:\n");
+      for (Pair<Issue, String> issueInfo : unreportedIssues) {
+        final Issue issue = issueInfo.getKey();
+        final String githubUrl = issueInfo.getValue();
+        sb
+          .append("* ")
+          .append(markDownUtils.globalIssue(issue.severity(), issue.message(), issue.ruleKey().toString(), githubUrl, issue.componentKey(), issue.isNew(), issue.key()))
+          .append("\n");
+      }
       if (notReportedIssueCount >= GitHubPluginConfiguration.MAX_GLOBAL_ISSUES) {
         sb.append("* ... ")
           .append(notReportedIssueCount - GitHubPluginConfiguration.MAX_GLOBAL_ISSUES)
@@ -72,16 +86,26 @@ public class GlobalReport {
     return newIssuesBySeverity[Severity.ALL.indexOf(s)];
   }
 
+  private int totalIssues(String s) {
+    return totalIssuesBySeverity[Severity.ALL.indexOf(s)];
+  }
+
   private void printNewIssuesMarkdown(StringBuilder sb) {
     sb.append("SonarQube analysis reported ");
-    int newIssues = newIssues(Severity.BLOCKER) + newIssues(Severity.CRITICAL) + newIssues(Severity.MAJOR) + newIssues(Severity.MINOR) + newIssues(Severity.INFO);
-    if (newIssues > 0) {
-      sb.append(newIssues).append(" issue" + (newIssues > 1 ? "s" : "")).append(":\n");
-      printNewIssuesForMarkdown(sb, Severity.BLOCKER);
-      printNewIssuesForMarkdown(sb, Severity.CRITICAL);
-      printNewIssuesForMarkdown(sb, Severity.MAJOR);
-      printNewIssuesForMarkdown(sb, Severity.MINOR);
-      printNewIssuesForMarkdown(sb, Severity.INFO);
+    final int totalIssues = totalIssues(Severity.BLOCKER) + totalIssues(Severity.CRITICAL) + totalIssues(Severity.MAJOR) + totalIssues(Severity.MINOR) + totalIssues(Severity.INFO);
+    final int newIssues = newIssues(Severity.BLOCKER) + newIssues(Severity.CRITICAL) + newIssues(Severity.MAJOR) + newIssues(Severity.MINOR) + newIssues(Severity.INFO);
+    if (totalIssues > 0) {
+      sb
+          .append(totalIssues)
+          .append(" issue" + (totalIssues > 1 ? "s" : ""))
+          .append(" (")
+          .append(newIssues)
+          .append(" new):\n");
+      printTotalIssuesForMarkdown(sb, Severity.BLOCKER);
+      printTotalIssuesForMarkdown(sb, Severity.CRITICAL);
+      printTotalIssuesForMarkdown(sb, Severity.MAJOR);
+      printTotalIssuesForMarkdown(sb, Severity.MINOR);
+      printTotalIssuesForMarkdown(sb, Severity.INFO);
     } else {
       sb.append("no issues.");
     }
@@ -91,7 +115,7 @@ public class GlobalReport {
     sb.append("SonarQube reported ");
     int newIssues = newIssues(Severity.BLOCKER) + newIssues(Severity.CRITICAL) + newIssues(Severity.MAJOR) + newIssues(Severity.MINOR) + newIssues(Severity.INFO);
     if (newIssues > 0) {
-      sb.append(newIssues).append(" issue" + (newIssues > 1 ? "s" : "")).append(",");
+      sb.append(newIssues).append(" new issue" + (newIssues > 1 ? "s" : "")).append(",");
       int newCriticalOrBlockerIssues = newIssues(Severity.BLOCKER) + newIssues(Severity.CRITICAL);
       if (newCriticalOrBlockerIssues > 0) {
         printNewIssuesInline(sb, Severity.CRITICAL);
@@ -116,29 +140,58 @@ public class GlobalReport {
     }
   }
 
-  private void printNewIssuesForMarkdown(StringBuilder sb, String severity) {
-    int issueCount = newIssues(severity);
+  private void printTotalIssuesForMarkdown(StringBuilder sb, String severity) {
+    int issueCount = totalIssues(severity);
     if (issueCount > 0) {
-      sb.append("* ").append(MarkDownUtils.getImageMarkdownForSeverity(severity)).append(" ").append(issueCount).append(" ").append(severity.toLowerCase()).append("\n");
+      sb
+          .append("* ")
+          .append(MarkDownUtils.getImageMarkdownForSeverity(severity))
+          .append(" ")
+          .append(issueCount)
+          .append(" ")
+          .append(severity.toLowerCase())
+          .append(" (")
+          .append(newIssues(severity))
+          .append(" new)\n");
     }
   }
 
   public void process(Issue issue, @Nullable String githubUrl, boolean reportedOnDiff) {
-    increment(issue.severity());
+    increment(issue);
     if (!reportedOnDiff) {
       notReportedIssueCount++;
+      addUnreportedIssue(issue, githubUrl);
 
       if (notReportedDisplayedIssueCount < GitHubPluginConfiguration.MAX_GLOBAL_ISSUES) {
-        notReportedOnDiff
-          .append("* ")
-          .append(markDownUtils.globalIssue(issue.severity(), issue.message(), issue.ruleKey().toString(), githubUrl, issue.componentKey(), issue.isNew(), issue.key()))
-          .append("\n");
         notReportedDisplayedIssueCount++;
+      }
+      else {
+        unreportedIssues.remove(GitHubPluginConfiguration.MAX_GLOBAL_ISSUES);
       }
     }
   }
 
-  public boolean hasNewIssue() {
-    return newIssues(Severity.BLOCKER) + newIssues(Severity.CRITICAL) + newIssues(Severity.MAJOR) + newIssues(Severity.MINOR) + newIssues(Severity.INFO) > 0;
+  private void addUnreportedIssue(Issue issue, @Nullable String githubUrl) {
+    for (int index = 0; index < unreportedIssues.size(); ++index) {
+      if (shouldInsertIssueBeforeOther(issue, unreportedIssues.get(index).getKey())) {
+        unreportedIssues.add(index, new Pair<Issue, String>(issue, githubUrl));
+        return;
+      }
+    }
+    unreportedIssues.add(new Pair<Issue, String>(issue, githubUrl));
+  }
+
+  private boolean shouldInsertIssueBeforeOther(Issue issue, Issue other) {
+    if (issue.isNew() && !other.isNew()) {
+      return true;
+    }
+    if (!issue.isNew() && other.isNew()) {
+      return false;
+    }
+    return Severity.ALL.indexOf(issue.severity()) < Severity.ALL.indexOf(other.severity());
+  }
+
+  public boolean hasIssue() {
+    return totalIssues(Severity.BLOCKER) + totalIssues(Severity.CRITICAL) + totalIssues(Severity.MAJOR) + totalIssues(Severity.MINOR) + totalIssues(Severity.INFO) > 0;
   }
 }
