@@ -50,6 +50,7 @@ public class MarkDownUtils implements BatchComponent {
       .append(message)
       .append(" ")
       .append(ruleLink)
+      .append(" ")
       .append(getIssueLink(isNew, issueKey));
     return sb.toString();
   }
@@ -63,7 +64,7 @@ public class MarkDownUtils implements BatchComponent {
     } else {
       sb.append(message).append(" ").append("(").append(componentKey).append(")");
     }
-    sb.append(" ").append(ruleLink).append(getIssueLink(isNew, issueKey));
+    sb.append(" ").append(ruleLink).append(" ").append(getIssueLink(isNew, issueKey));
     return sb.toString();
   }
 
