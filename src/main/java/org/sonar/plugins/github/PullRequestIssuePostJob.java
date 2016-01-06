@@ -79,10 +79,6 @@ public class PullRequestIssuePostJob implements org.sonar.api.batch.PostJob, Che
     Map<InputFile, Map<Integer, StringBuilder>> commentToBeAddedByFileAndByLine = new HashMap<>();
     for (Issue issue : projectIssues.issues()) {
       String severity = issue.severity();
-      boolean isNew = issue.isNew();
-      if (!isNew) {
-        continue;
-      }
       Integer issueLine = issue.line();
       InputFile inputFile = inputFileCache.byKey(issue.componentKey());
       if (inputFile != null && !pullRequestFacade.hasFile(inputFile)) {

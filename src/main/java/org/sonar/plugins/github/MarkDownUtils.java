@@ -19,13 +19,13 @@
  */
 package org.sonar.plugins.github;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import javax.annotation.Nullable;
 import org.sonar.api.BatchComponent;
 import org.sonar.api.CoreProperties;
 import org.sonar.api.batch.InstantiationStrategy;
 import org.sonar.api.config.Settings;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import javax.annotation.Nullable;
 
 @InstantiationStrategy(InstantiationStrategy.PER_BATCH)
 public class MarkDownUtils implements BatchComponent {
@@ -49,10 +49,9 @@ public class MarkDownUtils implements BatchComponent {
       .append(" ")
       .append(message)
       .append(" ")
-      .append(ruleLink);
-    if (!isNew) {
-      sb.append(getIssueLink(issueKey));
-    }
+      .append(ruleLink)
+      .append(" ")
+      .append(getIssueLink(isNew, issueKey));
     return sb.toString();
   }
 
@@ -65,10 +64,7 @@ public class MarkDownUtils implements BatchComponent {
     } else {
       sb.append(message).append(" ").append("(").append(componentKey).append(")");
     }
-    sb.append(" ").append(ruleLink);
-    if (!isNew) {
-      sb.append(getIssueLink(issueKey));
-    }
+    sb.append(" ").append(ruleLink).append(" ").append(getIssueLink(isNew, issueKey));
     return sb.toString();
   }
 
@@ -76,7 +72,10 @@ public class MarkDownUtils implements BatchComponent {
     return "[![rule](" + IMAGES_ROOT_URL + "rule.png)](" + ruleUrlPrefix + "coding_rules#rule_key=" + encodeForUrl(ruleKey) + ")";
   }
 
-  String getIssueLink(String issueKey) {
+  String getIssueLink(boolean isNew, String issueKey) {
+    if (isNew) {
+      return "![NEW](" + IMAGES_ROOT_URL + "newissue.png)";
+    }
     return "[![PERMALINK](" + IMAGES_ROOT_URL + "permalink.png)](" + ruleUrlPrefix + "issues/search#issues=" + issueKey + ")";
   }
 
